@@ -1,0 +1,118 @@
+name: Release
+
+# Every push to main is a candidate release. The version is derived from the
+# commit subjects since the last tag (Conventional Commits), so nobody edits
+# extension.json by hand and the tag can never disagree with the manifest.
+#
+#   feat: …            → minor      fix: … / anything else → patch
+#   feat!: … / BREAKING CHANGE → major
+#
+# The workflow commits the bump with GITHUB_TOKEN, and pushes made with that
+# token do not start another workflow run — so this cannot loop.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Override the bump the commits would have chosen
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the next version
+        id: v
+        run: |
+          set -euo pipefail
+
+          current=$(jq -r .version extension.json)
+          last_tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          range=${last_tag:+$last_tag..HEAD}
+          range=${range:-HEAD}
+
+          log=$(git log --format='%s%n%b' "$range")
+
+          if [ -z "$(printf '%s' "$log" | tr -d '[:space:]')" ]; then
+            echo "Nothing new since ${last_tag:-the beginning} — no release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          bump='${{ github.event.inputs.bump }}'
+          if [ -z "$bump" ] || [ "$bump" = auto ]; then
+            if printf '%s\n' "$log" | grep -qE '^(BREAKING CHANGE|[a-z]+(\(.+\))?!:)'; then
+              bump=major
+            elif printf '%s\n' "$log" | grep -qE '^feat(\(.+\))?:'; then
+              bump=minor
+            else
+              bump=patch
+            fi
+          fi
+
+          IFS=. read -r major minor patch <<< "$current"
+          case "$bump" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          next="$major.$minor.$patch"
+
+          # Written before the release commit exists, so the changelog is the
+          # user-facing work and not the bump itself.
+          git log --format='- %s' "$range" > "$RUNNER_TEMP/notes.md"
+
+          echo "Releasing $current -> $next ($bump)"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "slug=$(jq -r .id extension.json | cut -d/ -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Bump the manifest and tag it
+        if: steps.v.outputs.release == 'true'
+        run: |
+          set -euo pipefail
+          version='${{ steps.v.outputs.version }}'
+
+          jq --arg v "$version" '.version = $v' extension.json > extension.json.tmp
+          mv extension.json.tmp extension.json
+
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore(release): v$version"
+          git tag -a "v$version" -m "v$version"
+          git push origin HEAD:main --follow-tags
+
+      - name: Package and publish
+        if: steps.v.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version='${{ steps.v.outputs.version }}'
+          slug='${{ steps.v.outputs.slug }}'
+          archive="$slug-$version.zip"
+
+          # Tracked files only, under one top-level folder — which is the shape
+          # the installer expects. .gitattributes decides what stays out.
+          git archive --format=zip --prefix="$slug/" -o "$archive" HEAD
+
+          gh release create "v$version" "$archive" \
+            --title "v$version" \
+            --notes-file "$RUNNER_TEMP/notes.md"

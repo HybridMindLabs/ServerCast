@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { Radio, Send, Server, CheckCircle2, Clock, XCircle, WifiOff, Trash2, History } from '@lucide/vue';
+import { Radio, Send, CheckCircle2, Clock, XCircle, WifiOff, Trash2, History } from '@lucide/vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import PageHeader from '@/components/UI/PageHeader.vue';
 import GameIcon from '@/components/UI/GameIcon.vue';

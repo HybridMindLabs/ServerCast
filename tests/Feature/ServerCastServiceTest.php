@@ -6,7 +6,6 @@ use App\Models\Game;
 use App\Models\Server;
 use App\Models\ServerCommand;
 use App\Services\Bridge\BridgeService;
-use App\Services\Extensions\ExtensionAutoloader;
 use Hybridcore\ServerCast\Models\Broadcast;
 use Hybridcore\ServerCast\Services\ServerCastService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,15 +19,6 @@ class ServerCastServiceTest extends TestCase
     {
         parent::setUp();
         file_put_contents(storage_path('installed.lock'), 'installed');
-    }
-
-    protected function beforeRefreshingDatabase(): void
-    {
-        ExtensionAutoloader::register(
-            base_path('extensions/hybridcore/servercast'),
-            ['namespace' => 'Hybridcore\\ServerCast'],
-        );
-        $this->app['migrator']->path(base_path('extensions/hybridcore/servercast/database/migrations'));
     }
 
     protected function tearDown(): void
