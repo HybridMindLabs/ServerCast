@@ -1,0 +1,19 @@
+{
+  "id": "hybridcore/servercast",
+  "name": "ServerCast",
+  "version": "1.0.1",
+  "description": "Send a message from the panel to your game servers — pick one, several, or all at once — and see it delivered in-game. Works with every game through the bridge.",
+  "author": "HybridCore",
+  "type": "official",
+  "provider": "Hybridcore\\ServerCast\\ServerCastServiceProvider",
+  "routes": {
+    "admin": "routes/admin.php"
+  },
+  "migrations": "database/migrations",
+  "lang": "resources/lang",
+  "lang_namespace": "servercast",
+  "update_url": "https://api.github.com/repos/HybridMindLabs/ServerCast/releases/latest",
+  "requires": {
+    "core": ">=0.3.0"
+  }
+}
