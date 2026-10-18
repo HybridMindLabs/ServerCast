@@ -1,7 +1,7 @@
 {
   "id": "hybridcore/servercast",
   "name": "ServerCast",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Send a message from the panel to your game servers — pick one, several, or all at once — and see it delivered in-game. Works with every game through the bridge.",
   "author": "HybridCore",
   "type": "official",
